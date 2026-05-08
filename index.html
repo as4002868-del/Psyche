@@ -309,6 +309,619 @@
                 if (target) target.scrollIntoView({ behavior: 'smooth' });
             });
         });
+
+        // ============================================
+// PSYCHE × CHATBASE — Premium AI Chat Widget
+// Integrates Chatbase AI chatbot with a native-feeling wrapper
+// Add <script src="chatwidget.js" defer></script> before </body>
+// ============================================
+(function () {
+    'use strict';
+
+    // ─── Configuration ───────────────────────────────────────────
+    const CONFIG = {
+        // Replace with your actual Chatbase chatbot ID
+        chatbotId: 'YOUR_CHATBASE_BOT_ID',
+        // Chatbase iframe source (update if you have a custom domain)
+        iframeSrc: 'https://www.chatbase.co/chatbot-iframe/',
+        welcomeMessage: 'Hi 👋 Welcome! How can I assist you today?',
+        welcomeDelay: 3000,  // ms before showing welcome tooltip
+        brandName: 'Psyche AI',
+    };
+
+    // ─── Inject Styles ───────────────────────────────────────────
+    const css = `
+    /* ========== Chatbase Widget Toggle ========== */
+    #psyche-cb-toggle {
+        position: fixed;
+        bottom: 28px;
+        right: 28px;
+        z-index: 10000;
+        width: 62px;
+        height: 62px;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+        background: linear-gradient(135deg, #8b5cf6, #c084fc, #e879f9);
+        box-shadow: 0 4px 24px rgba(139, 92, 246, 0.4),
+                    0 0 0 0 rgba(139, 92, 246, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                    box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: psycheCbPulse 3s ease-in-out infinite;
+        outline: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    #psyche-cb-toggle:hover {
+        transform: scale(1.1);
+        box-shadow: 0 8px 40px rgba(139, 92, 246, 0.55),
+                    0 0 0 0 rgba(139, 92, 246, 0);
+    }
+
+    #psyche-cb-toggle:active {
+        transform: scale(0.95);
+    }
+
+    #psyche-cb-toggle svg {
+        width: 28px;
+        height: 28px;
+        fill: #fff;
+        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                    opacity 0.3s ease;
+        position: absolute;
+    }
+
+    #psyche-cb-toggle .cb-icon-close {
+        opacity: 0;
+        transform: rotate(-90deg) scale(0.5);
+    }
+
+    #psyche-cb-toggle.open {
+        animation: none;
+    }
+
+    #psyche-cb-toggle.open .cb-icon-open {
+        opacity: 0;
+        transform: rotate(90deg) scale(0.5);
+    }
+
+    #psyche-cb-toggle.open .cb-icon-close {
+        opacity: 1;
+        transform: rotate(0deg) scale(1);
+    }
+
+    @keyframes psycheCbPulse {
+        0%, 100% {
+            box-shadow: 0 4px 24px rgba(139, 92, 246, 0.4),
+                        0 0 0 0 rgba(139, 92, 246, 0.25);
+        }
+        50% {
+            box-shadow: 0 4px 24px rgba(139, 92, 246, 0.4),
+                        0 0 0 14px rgba(139, 92, 246, 0);
+        }
+    }
+
+    /* ========== Welcome Tooltip ========== */
+    #psyche-cb-tooltip {
+        position: fixed;
+        bottom: 100px;
+        right: 28px;
+        z-index: 10001;
+        max-width: 280px;
+        padding: 14px 20px;
+        background: rgba(17, 17, 25, 0.96);
+        backdrop-filter: blur(20px) saturate(1.8);
+        -webkit-backdrop-filter: blur(20px) saturate(1.8);
+        border: 1px solid rgba(139, 92, 246, 0.2);
+        border-radius: 16px;
+        border-bottom-right-radius: 4px;
+        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5),
+                    0 0 60px rgba(139, 92, 246, 0.08);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-size: 0.88rem;
+        color: #e0dfe8;
+        line-height: 1.6;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(12px) scale(0.95);
+        transform-origin: bottom right;
+        transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                    visibility 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+    }
+
+    #psyche-cb-tooltip.show {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
+    }
+
+    #psyche-cb-tooltip-close {
+        position: absolute;
+        top: 6px;
+        right: 8px;
+        width: 22px;
+        height: 22px;
+        border: none;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 50%;
+        color: #a8a5b5;
+        font-size: 0.7rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        line-height: 1;
+    }
+
+    #psyche-cb-tooltip-close:hover {
+        background: rgba(255, 255, 255, 0.12);
+        color: #f0eff4;
+    }
+
+    /* ========== Chat Window ========== */
+    #psyche-cb-window {
+        position: fixed;
+        bottom: 102px;
+        right: 28px;
+        z-index: 9999;
+        width: 400px;
+        height: 560px;
+        max-height: calc(100vh - 140px);
+        border-radius: 20px;
+        overflow: hidden;
+        background: rgba(17, 17, 25, 0.98);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        box-shadow: 0 20px 70px rgba(0, 0, 0, 0.6),
+                    0 0 100px rgba(139, 92, 246, 0.06);
+
+        /* closed state */
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(24px) scale(0.92);
+        transform-origin: bottom right;
+        transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                    visibility 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+    }
+
+    #psyche-cb-window.open {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0) scale(1);
+    }
+
+    /* ========== Chat Window Header ========== */
+    .psyche-cb-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 18px 20px;
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(192, 132, 252, 0.06));
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        flex-shrink: 0;
+    }
+
+    .psyche-cb-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #8b5cf6, #c084fc);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+        box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+    }
+
+    .psyche-cb-header-info h4 {
+        font-family: 'Playfair Display', Georgia, serif;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #f0eff4;
+        letter-spacing: -0.3px;
+        margin: 0;
+        line-height: 1.3;
+    }
+
+    .psyche-cb-header-info span {
+        font-size: 0.72rem;
+        color: #4ade80;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-weight: 500;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    .psyche-cb-header-info span::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #4ade80;
+        display: inline-block;
+        animation: psycheCbOnlineDot 2s ease-in-out infinite;
+    }
+
+    @keyframes psycheCbOnlineDot {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+    }
+
+    /* ========== Chatbase Iframe ========== */
+    .psyche-cb-iframe-wrap {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .psyche-cb-iframe-wrap iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: transparent;
+    }
+
+    /* Loading shimmer while iframe loads */
+    .psyche-cb-loader {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        background: rgba(17, 17, 25, 0.98);
+        transition: opacity 0.5s ease;
+        z-index: 1;
+    }
+
+    .psyche-cb-loader.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .psyche-cb-spinner {
+        width: 36px;
+        height: 36px;
+        border: 3px solid rgba(139, 92, 246, 0.15);
+        border-top-color: #8b5cf6;
+        border-radius: 50%;
+        animation: psycheCbSpin 0.8s linear infinite;
+    }
+
+    @keyframes psycheCbSpin {
+        to { transform: rotate(360deg); }
+    }
+
+    .psyche-cb-loader span {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-size: 0.78rem;
+        color: #6b687a;
+        letter-spacing: 0.5px;
+    }
+
+    /* ========== Footer Branding ========== */
+    .psyche-cb-footer {
+        text-align: center;
+        padding: 8px;
+        font-size: 0.65rem;
+        color: #6b687a;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        letter-spacing: 0.3px;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        flex-shrink: 0;
+        background: rgba(10, 10, 15, 0.5);
+    }
+
+    .psyche-cb-footer a {
+        color: #8b5cf6;
+        text-decoration: none;
+        transition: color 0.2s ease;
+    }
+
+    .psyche-cb-footer a:hover {
+        color: #c084fc;
+    }
+
+    /* ========== Notification Badge ========== */
+    #psyche-cb-badge {
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        width: 18px;
+        height: 18px;
+        background: #ef4444;
+        border-radius: 50%;
+        border: 2px solid #0a0a0f;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.6rem;
+        font-weight: 700;
+        color: #fff;
+        font-family: 'Inter', sans-serif;
+        opacity: 0;
+        transform: scale(0);
+        transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #psyche-cb-badge.show {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    /* ========== Mobile Responsive ========== */
+    @media (max-width: 480px) {
+        #psyche-cb-window {
+            right: 0;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100dvh;
+            max-height: 100dvh;
+            border-radius: 0;
+            transform-origin: bottom center;
+        }
+
+        #psyche-cb-window.open {
+            border-radius: 0;
+        }
+
+        #psyche-cb-toggle {
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+        }
+
+        #psyche-cb-toggle svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        #psyche-cb-tooltip {
+            right: 20px;
+            bottom: 86px;
+            max-width: 240px;
+        }
+    }
+
+    @media (min-width: 481px) and (max-width: 768px) {
+        #psyche-cb-window {
+            width: 360px;
+            right: 16px;
+            bottom: 96px;
+            height: 500px;
+        }
+
+        #psyche-cb-toggle {
+            bottom: 22px;
+            right: 22px;
+        }
+
+        #psyche-cb-tooltip {
+            right: 22px;
+            bottom: 94px;
+        }
+    }
+    `;
+
+    const styleEl = document.createElement('style');
+    styleEl.id = 'psyche-cb-styles';
+    styleEl.textContent = css;
+    document.head.appendChild(styleEl);
+
+    // ─── Build DOM ────────────────────────────────────────────────
+
+    // Toggle Button
+    const toggle = document.createElement('button');
+    toggle.id = 'psyche-cb-toggle';
+    toggle.setAttribute('aria-label', 'Open AI chat assistant');
+    toggle.setAttribute('title', 'Chat with our AI assistant');
+    toggle.innerHTML = `
+        <svg class="cb-icon-open" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2v5l5-5h9a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm0 14H10.2L6 20v-4H4V4h16v12z"/>
+            <circle cx="8" cy="10" r="1.2" fill="#fff" opacity="0.9"/>
+            <circle cx="12" cy="10" r="1.2" fill="#fff" opacity="0.9"/>
+            <circle cx="16" cy="10" r="1.2" fill="#fff" opacity="0.9"/>
+        </svg>
+        <svg class="cb-icon-close" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </svg>
+        <span id="psyche-cb-badge">1</span>
+    `;
+
+    // Welcome Tooltip
+    const tooltip = document.createElement('div');
+    tooltip.id = 'psyche-cb-tooltip';
+    tooltip.innerHTML = `
+        <button id="psyche-cb-tooltip-close" aria-label="Dismiss">✕</button>
+        ${CONFIG.welcomeMessage}
+    `;
+
+    // Chat Window
+    const win = document.createElement('div');
+    win.id = 'psyche-cb-window';
+    win.setAttribute('role', 'dialog');
+    win.setAttribute('aria-label', 'AI Chat Assistant');
+    win.innerHTML = `
+        <div class="psyche-cb-header">
+            <div class="psyche-cb-avatar">🧠</div>
+            <div class="psyche-cb-header-info">
+                <h4>${CONFIG.brandName}</h4>
+                <span>Online now</span>
+            </div>
+        </div>
+        <div class="psyche-cb-iframe-wrap">
+            <div class="psyche-cb-loader" id="psycheCbLoader">
+                <div class="psyche-cb-spinner"></div>
+                <span>Starting AI assistant…</span>
+            </div>
+        </div>
+        <div class="psyche-cb-footer">
+            Powered by <a href="https://www.chatbase.co" target="_blank" rel="noopener noreferrer">Chatbase</a> ✦ ${CONFIG.brandName}
+        </div>
+    `;
+
+    document.body.appendChild(win);
+    document.body.appendChild(tooltip);
+    document.body.appendChild(toggle);
+
+    // ─── State ────────────────────────────────────────────────────
+    let isOpen = false;
+    let iframeLoaded = false;
+    let tooltipDismissed = false;
+
+    const iframeWrap = win.querySelector('.psyche-cb-iframe-wrap');
+    const loader = document.getElementById('psycheCbLoader');
+    const badge = document.getElementById('psyche-cb-badge');
+
+    // ─── Lazy-load Chatbase iframe on first open ──────────────────
+    function loadChatbaseIframe() {
+        if (iframeLoaded) return;
+        iframeLoaded = true;
+
+        const iframe = document.createElement('iframe');
+        iframe.src = CONFIG.iframeSrc + CONFIG.chatbotId;
+        iframe.setAttribute('title', 'Chatbase AI Assistant');
+        iframe.setAttribute('loading', 'lazy');
+        iframe.setAttribute('allow', 'microphone');
+
+        iframe.addEventListener('load', () => {
+            setTimeout(() => {
+                loader.classList.add('hidden');
+            }, 400);
+        });
+
+        // Fallback: hide loader after 8s even if load event doesn't fire
+        setTimeout(() => {
+            loader.classList.add('hidden');
+        }, 8000);
+
+        iframeWrap.appendChild(iframe);
+    }
+
+    // ─── Toggle Chat ──────────────────────────────────────────────
+    function openChat() {
+        isOpen = true;
+        toggle.classList.add('open');
+        win.classList.add('open');
+        toggle.setAttribute('aria-label', 'Close AI chat assistant');
+        hideTooltip();
+        hideBadge();
+        loadChatbaseIframe();
+    }
+
+    function closeChat() {
+        isOpen = false;
+        toggle.classList.remove('open');
+        win.classList.remove('open');
+        toggle.setAttribute('aria-label', 'Open AI chat assistant');
+    }
+
+    toggle.addEventListener('click', () => {
+        if (isOpen) {
+            closeChat();
+        } else {
+            openChat();
+        }
+    });
+
+    // ─── Welcome Tooltip ──────────────────────────────────────────
+    function showTooltip() {
+        if (tooltipDismissed || isOpen) return;
+        tooltip.classList.add('show');
+        badge.classList.add('show');
+    }
+
+    function hideTooltip() {
+        tooltip.classList.remove('show');
+        tooltipDismissed = true;
+    }
+
+    function hideBadge() {
+        badge.classList.remove('show');
+    }
+
+    // Show welcome tooltip after delay
+    setTimeout(showTooltip, CONFIG.welcomeDelay);
+
+    // Dismiss tooltip
+    document.getElementById('psyche-cb-tooltip-close').addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideTooltip();
+        hideBadge();
+    });
+
+    // Clicking tooltip opens chat
+    tooltip.addEventListener('click', () => {
+        openChat();
+    });
+
+    // ─── Keyboard Accessibility ──────────────────────────────────
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isOpen) {
+            closeChat();
+        }
+    });
+
+    // ─── Performance: pause pulse when open ──────────────────────
+    toggle.addEventListener('mouseenter', () => {
+        toggle.style.animationPlayState = 'paused';
+    });
+
+    toggle.addEventListener('mouseleave', () => {
+        if (!isOpen) toggle.style.animationPlayState = 'running';
+    });
+
+    // ─── Also inject the Chatbase standard embed script ──────────
+    // This ensures Chatbase analytics and tracking work properly
+    // (The iframe approach is the visual integration; this is the backend)
+    window.embeddedChatbotConfig = {
+        chatbotId: CONFIG.chatbotId,
+        domain: "www.chatbase.co",
+    };
+
+    const cbScript = document.createElement('script');
+    cbScript.src = "https://www.chatbase.co/embed.min.js";
+    cbScript.setAttribute('chatbotId', CONFIG.chatbotId);
+    cbScript.defer = true;
+
+    // Hide the default Chatbase widget since we have our custom one
+    const hideCbDefault = document.createElement('style');
+    hideCbDefault.id = 'psyche-hide-default-cb';
+    hideCbDefault.textContent = `
+        /* Hide default Chatbase floating button — we use our custom premium one */
+        iframe[title="chatbase-bubble-button"],
+        iframe[title="chatbase-bubble-window"],
+        #chatbase-bubble-button,
+        #chatbase-bubble-window,
+        .chatbase-bubble-button,
+        .chatbase-bubble-window {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+    `;
+    document.head.appendChild(hideCbDefault);
+    document.body.appendChild(cbScript);
+
+})();
+    
     </script>
 
 </body>
